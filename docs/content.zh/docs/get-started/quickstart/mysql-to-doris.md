@@ -30,20 +30,55 @@ under the License.
 本教程的演示都将在 Flink CDC CLI 中进行，无需一行 Java/Scala 代码，也无需安装 IDE。
 
 ## 准备阶段
-准备一台已经安装了 Docker 的 Linux 或者 MacOS 电脑。
-
+准备一台已经安装了 Docker 的 Linux 或者 MacOS 电脑。要求提前安装jdk、docker、docker-compose。
+安装docker：
+   ```shell
+   curl -fsSL https://get.docker.com | sh
+   ```
+安装 docker-compose：
+   ```shell
+   sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+   ```
+给docker-compose赋予运行权限：
+   ```shell
+   sudo chmod +x /usr/local/bin/docker-compose
+   ```
 ### 准备 Flink Standalone 集群
 1. 下载 [Flink 1.18.0](https://archive.apache.org/dist/flink/flink-1.18.0/flink-1.18.0-bin-scala_2.12.tgz)，解压后得到 flink-1.18.0 目录。
-   使用下面的命令跳转至 Flink 目录下，并且设置 FLINK_HOME 为 flink-1.18.0 所在目录。
+   使用下面的命令跳转至 Flink 目录下，并且设置 FLINK_HOME 为 flink-1.18.0 所在目录。<br /><br />
+   设置FLINK_HOME(ubuntu)：
 
    ```shell
-   cd flink-1.18.0
+   gedit ~/.bashrc
    ```
+   在末尾添加一行：
+   ```shell
+   export FLINK_HOME="path"
+   ```
+   其中path为flink-1.18.0的位置，如："/home/lele712/Downloads/flink/flink-1.18.0"<br />
+   添加完成后，执行：
+      ```shell
+      source ~/.bashrc
+   ```
+   使其立即生效。<br />
+   设置完成后，直接执行
+   ```shell
+   cd $FLINK_HOME
+   ```
+   即可切换到flink所在的目录
 
 2. 通过在 conf/flink-conf.yaml 配置文件追加下列参数开启 checkpoint，每隔 3 秒做一次 checkpoint。
 
    ```yaml
    execution.checkpointing.interval: 3000
+   ```
+   同时，在conf/flink-conf.yaml中查找并修改（关键，越大越好）：
+   ```shell
+   jobmanager.memory.process.size: 3600m
+   taskmanager.memory.process.size: 3728m
+   taskmanager.memory.flink.size: 3280m
+   taskmanager.numberOfTaskSlots: 4
+   parallelism.default: 4
    ```
 
 3. 使用下面的命令启动 Flink 集群。
@@ -62,7 +97,7 @@ under the License.
 接下来的教程将以 `docker-compose` 的方式准备所需要的组件。
 
 1. 宿主机配置
-   由于 Doris 的运行需要内存映射支持，需在宿主机执行如下命令:
+   由于 Doris 的运行需要内存映射支持，需在宿主机执行如下命令(宿主机每次重启后都要执行这个):
 
    ```shell
    sysctl -w vm.max_map_count=2000000
@@ -188,7 +223,6 @@ MacOS 由于内部实现容器的方式不同，在部署时宿主机直接修�
    **下载链接只对已发布的版本有效, SNAPSHOT 版本需要本地基于 master 或 release- 分支编译.**
     - [MySQL pipeline connector 3.0.0](https://repo1.maven.org/maven2/com/ververica/flink-cdc-pipeline-connector-mysql/3.0.0/flink-cdc-pipeline-connector-mysql-3.0.0.jar)
     - [Apache Doris pipeline connector 3.0.0](https://repo1.maven.org/maven2/com/ververica/flink-cdc-pipeline-connector-doris/3.0.0/flink-cdc-pipeline-connector-doris-3.0.0.jar)
-    - [MySQL Connector Java](https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.27/mysql-connector-java-8.0.27.jar)
 
 3.编写任务配置 yaml 文件
 下面给出了一个整库同步的示例文件 `mysql-to-doris.yaml`：
@@ -227,7 +261,7 @@ sink 添加 `table.create.properties.replication_num` 参数是由于 Docker 镜
 
 4. 最后，通过命令行提交任务到 Flink Standalone cluster
    ```shell
-   bash bin/flink-cdc.sh mysql-to-doris.yaml --jar lib/mysql-connector-java-8.0.27.jar
+   bash bin/flink-cdc.sh mysql-to-doris.yaml
    ```
 提交成功后，返回信息如：
    ```shell
@@ -246,9 +280,9 @@ sink 添加 `table.create.properties.replication_num` 参数是由于 Docker 镜
 ### 同步变更
 进入 MySQL 容器
 
-   ```shell
+    ```shell
     docker-compose exec mysql mysql -uroot -p123456
-   ```
+    ```
 
 接下来，修改 MySQL 数据库中表的数据，Doris 中显示的订单数据也将实时更新：
 1. 在 MySQL 的 `orders` 表中插入一条数据 
